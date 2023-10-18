@@ -1,30 +1,50 @@
+#include <stdio.h>
 #include "shell.h"
 #include <sys/wait.h>
-#include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+
+#define MAX_COMMAND 20
 
 void prompt(char **av, char **env) {
     char *string = NULL;
     int i, status;
     size_t n = 0;
     ssize_t num_char;
-    char *argv[] = {NULL, NULL};
+    char *argv[MAX_COMMAND];
     pid_t child_pid;
 
     while (1) {
-        printf("tiswork");
+        if (isatty(STDIN_FILENO)) {
+            printf("tiswork$ ");
+        }
+
         num_char = getline(&string, &n, stdin);
         if (num_char == -1) {
             free(string);
             exit(EXIT_FAILURE);
         }
-        i = 0;
-        while (string[i]) {
-            if (string[i] == '\n')
-                string[i] = 0;
-            i++;
+
+       
+        if (string[num_char - 1] == '\n') {
+            string[num_char - 1] = 0; // Remove the newline character
+        } else {
+            // If it doesn't end with a newline, print an error message
+            fprintf(stderr, "Invalid command: Command lines must end with a newline\n");
+            continue; // Prompt again
         }
+
+       
+        if (strchr(string, ' ')) {
+            // If there's a space, print an error message
+            fprintf(stderr, "Invalid command: Command lines must contain only one word\n");
+            continue; // Prompt again
+        }
+
         argv[0] = string;
+        argv[1] = NULL;
+
         child_pid = fork();
         if (child_pid == -1) {
             free(string);
@@ -32,7 +52,8 @@ void prompt(char **av, char **env) {
         }
         if (child_pid == 0) {
             if (execve(argv[0], argv, env) == -1) {
-                printf("%s: No such file\n", av[0]);
+                fprintf(stderr, "%s: No such file\n", av[0]);
+                exit(EXIT_FAILURE);
             }
         } else {
             wait(&status);
